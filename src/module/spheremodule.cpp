@@ -1,6 +1,6 @@
 /*
  *   RapCAD - Rapid prototyping CAD IDE (www.rapcad.org)
- *   Copyright (C) 2010-2014 Giles Bathgate
+ *   Copyright (C) 2010-2019 Giles Bathgate
  *
  *   This program is free software: you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -16,93 +16,83 @@
  *   along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <math.h>
 #include "spheremodule.h"
 #include "numbervalue.h"
-#include "tau.h"
-#include "node/pointnode.h"
+#include "rmath.h"
+#include "node/pointsnode.h"
 
-SphereModule::SphereModule() : PrimitiveModule("sphere")
+SphereModule::SphereModule(Reporter& r) : PrimitiveModule(r,"sphere")
 {
-	addParameter("radius");
-	addParameter("center");
+	addDescription(tr("Constructs a sphere. The sphere will be centered at the origin."));
+	addParameter("radius",tr("The radius of the sphere."));
 }
 
-Node* SphereModule::evaluate(Context* ctx)
+Node* SphereModule::evaluate(const Context& ctx) const
 {
-	NumberValue* rValue=dynamic_cast<NumberValue*>(getParameterArgument(ctx,0));
-	Value* centerValue=getParameterArgument(ctx,1);
-
-	bool center=true;
-	if(centerValue)
-		center=centerValue->isTrue();
-
+	auto* rValue=dynamic_cast<NumberValue*>(getParameterArgument(ctx,0));
 	decimal r=0.0;
 	if(rValue) {
 		r=rValue->getNumber();
 	} else {
-		NumberValue* dValue = dynamic_cast<NumberValue*>(ctx->getArgument(0,"diameter"));
+		NumberValue* dValue = dynamic_cast<NumberValue*>(ctx.getArgument(0,"diameter"));
 		if(dValue)
 			r=(dValue->getNumber()/2.0);
 	}
 	if(r==0.0)
-		return new PointNode();
+		return new PointsNode();
 
-	Fragment fg=getSpecialVariables(ctx);
-	int f = fg.getFragments(r);
+	Fragment* fg = Fragment::createFragment(ctx);
+	int f = fg->getFragments(r);
+	delete fg;
+
 	int ringCount=f/2;
 
-	decimal h=center?0.0:r;
-	QList<Polygon> rings;
-	for(int i=0; i<ringCount; i++) {
-		decimal phi = (M_PI*(i+0.5)) / ringCount;
-		decimal r2 = r*sin(phi);
-		decimal z = r*cos(phi)+h;
-		Polygon* c = getCircle(r2,f,z);
-		rings.append(*c);
-	}
+	auto* pn=new PrimitiveNode(reporter);
+	Primitive* p=pn->createPrimitive();
+	pn->setChildren(ctx.getInputNodes());
 
-	PrimitiveNode* p = new PrimitiveNode();
-
-	p->createPolygon();
-	Polygon top=rings.at(0);
-	foreach(Point pt, top.getPoints())
-		p->appendVertex(pt);
-
-	for(int i = 0; i < ringCount-1; i++) {
-		QList<Point> r1 = rings.at(i).getPoints();
-		QList<Point> r2 = rings.at(i+1).getPoints();
-		int r1i = 0, r2i = 0;
-		while(r1i < f || r2i < f) {
-			if(r2i >= f||(decimal)r1i/f<(decimal)r2i/f) {
-				p->createPolygon();
-				int r1j = (r1i+1) % f;
-				p->prependVertex(r1.at(r1i));
-				p->prependVertex(r1.at(r1j));
-				p->prependVertex(r2.at(r2i % f));
-				r1i++;
-			} else {
-				p->createPolygon();
-				int r2j = (r2i+1) % f;
-				p->appendVertex(r2.at(r2i));
-				p->appendVertex(r2.at(r2j));
-				p->appendVertex(r1.at(r1i % f));
-				r2i++;
-			}
+	for(auto i=0; i<ringCount; ++i) {
+		decimal phi = (r_pi()*(i+0.5)) / ringCount;
+		decimal r2 = r*r_sin(phi);
+		decimal z = r*r_cos(phi);
+		QList<Point> c = getCircle(r2,f,z);
+		for(const auto& pt: c) {
+			p->createVertex(pt);
 		}
 	}
 
-	p->createPolygon();
-	Polygon bottom=rings.at(ringCount-1);
-	foreach(Point pt, bottom.getPoints())
-		p->prependVertex(pt);
-
-	if(center) {
-		AlignNode* n=new AlignNode();
-		n->setCenter(true);
-		n->addChild(p);
-		return n;
+	Polygon* pg=p->createPolygon();
+	for(auto i=0; i<f; ++i) {
+		pg->append(i);
 	}
 
-	return p;
+	for(auto i=0; i<ringCount-1; ++i) {
+		int i1=i*f;
+		int i2=(i+1)*f;
+		for(auto j=0; j<f; ++j) {
+			int j2=(j+1)%f;
+
+			int o=j+i1;
+			int k=j2+i1;
+			int m=j2+i2;
+			int l=j+i2;
+
+			pg=p->createPolygon();
+			pg->append(k);
+			pg->append(o);
+			pg->append(l);
+
+			pg=p->createPolygon();
+			pg->append(l);
+			pg->append(m);
+			pg->append(k);
+		}
+	}
+
+	pg=p->createPolygon();
+	for(auto i=f*ringCount; i>f*(ringCount-1); i--) {
+		pg->append(i-1);
+	}
+
+	return pn;
 }

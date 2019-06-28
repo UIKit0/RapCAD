@@ -1,6 +1,6 @@
 /*
  *   RapCAD - Rapid prototyping CAD IDE (www.rapcad.org)
- *   Copyright (C) 2010-2014 Giles Bathgate
+ *   Copyright (C) 2010-2019 Giles Bathgate
  *
  *   This program is free software: you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -22,20 +22,20 @@
 #include <QMap>
 #include "textbuilder.h"
 
-typedef QList<Polygon*> Char;
-
 class SimpleTextBuilder : public TextBuilder
 {
+	typedef QList<Point> Stroke;
+	typedef QList<Stroke> Letter;
 public:
 	SimpleTextBuilder();
-	void setText(QString);
-	decimal getHeight();
-	void setLocation(Point);
-	Primitive* buildPrimitive() const;
+	void setText(const QString&) override;
+	decimal getHeight() override;
+	void setLocation(const Point&) override;
+	Primitive* buildPrimitive() const override;
 private:
 	QString text;
 	Point location;
-	static QMap<QChar,Char>* characters;
+	static QMap<QChar,Letter>* characters;
 };
 
 #endif // SIMPLETEXTBUILDER_H

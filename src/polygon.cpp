@@ -1,6 +1,6 @@
 /*
  *   RapCAD - Rapid prototyping CAD IDE (www.rapcad.org)
- *   Copyright (C) 2010-2014 Giles Bathgate
+ *   Copyright (C) 2010-2019 Giles Bathgate
  *
  *   This program is free software: you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -17,22 +17,37 @@
  */
 
 #include "polygon.h"
+#include "primitive.h"
 
-Polygon::Polygon()
+Polygon::Polygon(const Primitive& p) : parent(p)
 {
 }
 
-void Polygon::append(Point p)
+void Polygon::append(int i)
 {
-	points.append(p);
+	indexes.append(i);
 }
 
-void Polygon::prepend(Point p)
+void Polygon::prepend(int i)
 {
-	points.prepend(p);
+	indexes.prepend(i);
 }
 
 QList<Point> Polygon::getPoints() const
 {
+	QList<Point> parentPoints=parent.getPoints();
+	QList<Point> points;
+	for(auto i: indexes)
+		points.append(parentPoints.at(i));
 	return points;
+}
+
+QList<int> Polygon::getIndexes() const
+{
+	return indexes;
+}
+
+void Polygon::setIndexes(const QList<int>& value)
+{
+	indexes=value;
 }
